@@ -1,0 +1,78 @@
+#!/bin/bash
+
+# Obtenemos la ruta de la carpeta home del usuario que ejecuta el script
+HOME_PATH=$(eval echo "~$USER")
+
+# Creamos la carpeta Wireguard-peers-generados, si no existe
+mkdir -p $HOME_PATH/Wireguard-peers-generados
+
+# Generamos la clave privada y pública del peer
+PRIVATE_KEY=$(wg genkey)
+PUBLIC_KEY=$(echo $PRIVATE_KEY | wg pubkey)
+
+# Solicitamos al usuario que ingrese el nombre del archivo de configuración
+read -p "Ingrese el nombre del archivo de configuración: " CONFIG_FILE
+
+# Solicitamos al usuario que ingrese la clave pública del servidor
+read -p "Ingrese la clave pública del servidor: " SERVER_PUBLIC_KEY
+
+# Solicitamos al usuario que ingrese la dirección IP del servidor
+read -p "Ingrese la dirección IP del servidor: " SERVER_IP
+
+# Solicitamos al usuario que ingrese el puerto del servidor
+read -p "Ingrese el puerto del servidor: " PORT
+
+# Solicitamos al usuario que ingrese la dirección IP del campo Address
+read -p "Ingrese la dirección IP del campo Address: " ADDRESS_IP
+
+# Creamos el archivo de configuración en la carpeta Wireguard-peers-generados
+cat > $HOME_PATH/Wireguard-peers-generados/$CONFIG_FILE <<EOF
+# Clave privada del peer: $PRIVATE_KEY
+# Clave pública del peer: $PUBLIC_KEY
+
+[Interface]
+PrivateKey = $PRIVATE_KEY
+ListenPort = $PORT
+Address = $ADDRESS_IP/32
+
+[Peer]
+PublicKey = $SERVER_PUBLIC_KEY
+Endpoint = $SERVER_IP:$PORT
+AllowedIPs = 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+EOF
+
+# Generamos el código QR para el peer y lo guardamos en la carpeta Wireguard-peers-generados
+qrencode -t utf8 -o $HOME_PATH/Wireguard-peers-generados/$CONFIG_FILE.png < $HOME_PATH/Wireguard-peers-generados/$CONFIG_FILE
+
+# Mostramos el código QR generado en la terminal
+qrencode -t utf8 < $HOME_PATH/Wireguard-peers-generados/$CONFIG_FILE
+
+# Mostramos en pantalla la clave pública y privada del Peer generado
+echo "Clave privada del Peer:"
+echo "$PRIVATE_KEY"
+echo
+echo "Clave pública del Peer:"
+echo "$PUBLIC_KEY"
+
+# Mostramos el contenido del archivo de configuración del Peer
+echo
+echo "Contenido del archivo de configuración del Peer:"
+echo "-------------------"
+cat $HOME_PATH/Wireguard-peers-generados/$CONFIG_FILE
+echo "-------------------"
+
+# Generamos el comando para configurar el peer en Mikrotik
+MIKROTIK_COMMAND="/interface wireguard peers
+add allowed-address=$ADDRESS_IP/32 interface=wireguard1 public-key=\"$PUBLIC_KEY\""
+
+# Mostramos el comando en la terminal
+echo
+echo "Comando para configurar el peer en Mikrotik a través de la terminal:"
+echo "-------------------"
+echo "$MIKROTIK_COMMAND"
+echo "-------------------"
+
+# Mostramos un mensaje indicando que se ha generado el archivo de configuración y el código QR
+echo
+echo "Se ha generado el archivo de configuración y el código QR en la carpeta Wireguard-peers-generados de su directorio home."
+echo "Utilice el archivo de configuración y el código QR para configurar el Peer en su dispositivo."
